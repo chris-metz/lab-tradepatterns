@@ -4,10 +4,9 @@ export interface PricePoint {
   symbol: string;
 }
 
-export interface PatternEvent {
+export interface RapidDropEvent {
   id: string;
   symbol: string;
-  type: string;
   triggerPrice: number;
   triggerTimestamp: number;
   /** The high price the drop was measured from */

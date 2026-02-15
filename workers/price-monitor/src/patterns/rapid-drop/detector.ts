@@ -1,7 +1,7 @@
-import type { PricePoint, PatternEvent } from "@tradepatterns/shared";
+import type { PricePoint, RapidDropEvent } from "@tradepatterns/shared";
 import { randomUUID } from "crypto";
 
-export interface DetectorConfig {
+export interface RapidDropDetectorConfig {
   /** Rolling window size in seconds */
   windowSeconds: number;
   /** Drop threshold in percent (e.g. 2 = 2%) */
@@ -12,27 +12,27 @@ export interface DetectorConfig {
   cooldownSeconds: number;
 }
 
-const DEFAULT_CONFIG: DetectorConfig = {
+const DEFAULT_CONFIG: RapidDropDetectorConfig = {
   windowSeconds: 60,
   dropPercent: 2,
   recordAfterSeconds: 120,
   cooldownSeconds: 300,
 };
 
-export class PatternDetector {
-  private config: DetectorConfig;
+export class RapidDropDetector {
+  private config: RapidDropDetectorConfig;
   private window: PricePoint[] = [];
   private activeRecording: {
-    event: PatternEvent;
+    event: RapidDropEvent;
     endTimestamp: number;
     windowHigh: number;
   } | null = null;
   private lastTriggerTimestamp = 0;
-  private onComplete: (event: PatternEvent) => void;
+  private onComplete: (event: RapidDropEvent) => void;
 
   constructor(
-    config: Partial<DetectorConfig> = {},
-    onComplete: (event: PatternEvent) => void,
+    config: Partial<RapidDropDetectorConfig> = {},
+    onComplete: (event: RapidDropEvent) => void,
   ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.onComplete = onComplete;
@@ -85,10 +85,9 @@ export class PatternDetector {
     ) {
       this.lastTriggerTimestamp = point.timestamp;
 
-      const event: PatternEvent = {
+      const event: RapidDropEvent = {
         id: randomUUID(),
         symbol: point.symbol,
-        type: "rapid_drop",
         triggerPrice: point.price,
         triggerTimestamp: point.timestamp,
         windowHigh,

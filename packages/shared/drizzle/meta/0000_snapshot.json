@@ -1,0 +1,111 @@
+{
+  "id": "15923660-8180-4b4b-bac6-283fa4df1664",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.pattern_events": {
+      "name": "pattern_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trigger_price": {
+          "name": "trigger_price",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trigger_timestamp": {
+          "name": "trigger_timestamp",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "window_high": {
+          "name": "window_high",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "drop_percent": {
+          "name": "drop_percent",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "config_drop_percent": {
+          "name": "config_drop_percent",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lowest_price": {
+          "name": "lowest_price",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lowest_price_timestamp": {
+          "name": "lowest_price_timestamp",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "window_seconds": {
+          "name": "window_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prices_before": {
+          "name": "prices_before",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prices_after": {
+          "name": "prices_after",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

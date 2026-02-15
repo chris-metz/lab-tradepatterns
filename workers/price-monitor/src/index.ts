@@ -1,40 +1,75 @@
+import dotenv from "dotenv";
+dotenv.config({ path: "../../.env" });
+
 import { BinanceWS } from "./binance-ws.js";
-import { PatternDetector, type DetectorConfig } from "./pattern-detector.js";
-import type { PatternEvent } from "@tradepatterns/shared";
+import {
+  RapidDropDetector,
+  type RapidDropDetectorConfig,
+} from "./patterns/rapid-drop/detector.js";
+import { createDb, schema } from "@tradepatterns/shared";
+import type { RapidDropEvent } from "@tradepatterns/shared";
+
+const db = createDb(process.env.DATABASE_URL!);
 
 const SYMBOLS = ["btcusdt", "ethusdt", "solusdt"];
 
-const DETECTOR_CONFIGS: DetectorConfig[] = [
+const DETECTOR_CONFIGS: RapidDropDetectorConfig[] = [
   { windowSeconds: 30, dropPercent: 2, recordAfterSeconds: 120, cooldownSeconds: 300 },
   { windowSeconds: 60, dropPercent: 2, recordAfterSeconds: 120, cooldownSeconds: 300 },
   { windowSeconds: 300, dropPercent: 5, recordAfterSeconds: 300, cooldownSeconds: 600 },
 ];
 
-function handlePatternEvent(event: PatternEvent) {
-  console.log(`\n=== Pattern Event ===`);
-  console.log(`Symbol: ${event.symbol}`);
-  console.log(`Window: ${event.windowSeconds}s`);
-  console.log(`Drop: -${event.dropPercent.toFixed(2)}%`);
-  console.log(`Trigger price: ${event.triggerPrice.toFixed(2)}`);
-  console.log(`Prices before: ${event.pricesBefore.length}`);
-  console.log(`Prices after: ${event.pricesAfter.length}`);
+async function handleRapidDropEvent(event: RapidDropEvent) {
+  console.log(
+    `\n=== Rapid Drop: ${event.symbol} -${event.dropPercent.toFixed(2)}% (${event.windowSeconds}s window) ===`,
+  );
 
-  const lastPrice = event.pricesAfter.at(-1);
-  if (lastPrice) {
-    const recovery =
-      ((lastPrice.price - event.triggerPrice) / event.triggerPrice) * 100;
+  try {
+    const [inserted] = await db
+      .insert(schema.rapidDropEvents)
+      .values({
+        symbol: event.symbol,
+        triggerPrice: event.triggerPrice,
+        triggerTimestamp: new Date(event.triggerTimestamp),
+        windowHigh: event.windowHigh,
+        dropPercent: event.dropPercent,
+        configDropPercent: event.configDropPercent,
+        lowestPrice: event.lowestPrice,
+        lowestPriceTimestamp: new Date(event.lowestPriceTimestamp),
+        windowSeconds: event.windowSeconds,
+      })
+      .returning({ id: schema.rapidDropEvents.id });
+
+    const pricePointRows = [
+      ...event.pricesBefore.map((p) => ({
+        eventId: inserted.id,
+        phase: "before" as const,
+        timestamp: new Date(p.timestamp),
+        price: p.price,
+      })),
+      ...event.pricesAfter.map((p) => ({
+        eventId: inserted.id,
+        phase: "after" as const,
+        timestamp: new Date(p.timestamp),
+        price: p.price,
+      })),
+    ];
+
+    if (pricePointRows.length > 0) {
+      await db.insert(schema.rapidDropPricePoints).values(pricePointRows);
+    }
+
     console.log(
-      `Price ${recovery >= 0 ? "recovered" : "continued down"}: ${recovery >= 0 ? "+" : ""}${recovery.toFixed(2)}%`,
+      `Persisted: ${inserted.id} (${event.pricesBefore.length} before + ${event.pricesAfter.length} after = ${pricePointRows.length} price points)`,
     );
+  } catch (err) {
+    console.error("Failed to persist event:", err);
   }
-
-  // TODO: persist to PostgreSQL
-  console.log(`====================\n`);
 }
 
 for (const symbol of SYMBOLS) {
   const detectors = DETECTOR_CONFIGS.map(
-    (config) => new PatternDetector(config, handlePatternEvent),
+    (config) => new RapidDropDetector(config, handleRapidDropEvent),
   );
 
   const ws = new BinanceWS(symbol);
