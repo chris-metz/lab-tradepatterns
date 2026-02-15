@@ -1,0 +1,9 @@
+{
+  "name": "tradepatterns",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "workers/*",
+    "packages/*"
+  ]
+}
