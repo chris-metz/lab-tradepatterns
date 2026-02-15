@@ -24,9 +24,24 @@ npm run dev -w apps/web
 npm run dev -w workers/price-monitor
 ```
 
+## Dienste
+
+Der Price Monitor läuft als systemd User-Service:
+
+```bash
+# Status prüfen
+systemctl --user status tradepatterns-monitor
+
+# Logs verfolgen
+journalctl --user -u tradepatterns-monitor -f
+
+# Nach Änderungen am Worker neu starten
+systemctl --user restart tradepatterns-monitor
+```
+
 ## Tech-Stack
 
 - TypeScript
 - Next.js (App Router)
 - Binance WebSocket API
-- PostgreSQL + Drizzle ORM (geplant)
+- PostgreSQL + Drizzle ORM
