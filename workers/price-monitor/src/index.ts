@@ -14,9 +14,9 @@ const db = createDb(process.env.DATABASE_URL!);
 const SYMBOLS = ["btcusdt", "ethusdt", "solusdt"];
 
 const DETECTOR_CONFIGS: RapidDropDetectorConfig[] = [
-  { windowSeconds: 30, dropPercent: 2, recordAfterSeconds: 120, cooldownSeconds: 300 },
-  { windowSeconds: 60, dropPercent: 2, recordAfterSeconds: 120, cooldownSeconds: 300 },
-  { windowSeconds: 300, dropPercent: 5, recordAfterSeconds: 300, cooldownSeconds: 600 },
+  { windowSeconds: 30, dropPercent: 2, recordAfterSeconds: 600, cooldownSeconds: 600 },
+  { windowSeconds: 60, dropPercent: 2, recordAfterSeconds: 600, cooldownSeconds: 600 },
+  { windowSeconds: 300, dropPercent: 5, recordAfterSeconds: 600, cooldownSeconds: 600 },
 ];
 
 async function handleRapidDropEvent(event: RapidDropEvent) {
