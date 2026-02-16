@@ -7,10 +7,8 @@ dotenv.config({ path: resolve(__dirname, "../../../.env") });
 
 import { parseArgs } from "node:util";
 import { createDb } from "@tradepatterns/shared";
-import { fetchKlines } from "./binance-rest.js";
-import { getMissingDays, cacheDay } from "./kline-cache.js";
+import { downloadSymbol } from "./downloader.js";
 import { getPattern } from "./patterns/index.js";
-import type { RawKline } from "./binance-rest.js";
 
 const DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
 
@@ -39,39 +37,15 @@ const noPersist = values["no-persist"] ?? false;
 
 const startTime = performance.now();
 
-async function downloadSymbol(symbol: string): Promise<void> {
-  const extendedTo = new Date(to.getTime() + patternModule.trailingSeconds * 1000);
-  const missing = await getMissingDays(symbol, from, extendedTo);
-
-  if (missing.length === 0) {
-    console.log(`  Cache complete, no downloads needed`);
-    return;
-  }
-
-  console.log(`  Downloading ${missing.length} missing day(s)...`);
-
-  for (const day of missing) {
-    const dayStart = new Date(day + "T00:00:00Z").getTime();
-    const dayEnd = new Date(day + "T23:59:59.999Z").getTime();
-
-    const allKlines: RawKline[] = [];
-    for await (const batch of fetchKlines(symbol, dayStart, dayEnd)) {
-      allKlines.push(...batch);
-    }
-
-    await cacheDay(symbol, day, allKlines);
-    console.log(`    ${day}: ${allKlines.length} klines cached`);
-  }
-}
-
 async function main() {
   const flags = [dryRun && "dry-run", noPersist && "no-persist"].filter(Boolean).join(", ");
   console.log(`Backtest [${patternModule.name}]: ${symbols.join(", ")} from ${values.from} to ${values.to}${flags ? ` (${flags})` : ""}\n`);
 
-  // Phase 1: Download
+  // Phase 1: Download (extended range for trailing data)
+  const extendedTo = new Date(to.getTime() + patternModule.trailingSeconds * 1000);
   for (const symbol of symbols) {
     console.log(`Downloading ${symbol}...`);
-    await downloadSymbol(symbol);
+    await downloadSymbol(symbol, from, extendedTo);
   }
 
   if (dryRun) {
