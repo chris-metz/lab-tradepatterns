@@ -1,5 +1,5 @@
 const BASE_URL = "https://api.binance.com";
-const RATE_LIMIT_MS = 200;
+const RATE_LIMIT_MS = 500;
 const MAX_RETRIES = 5;
 
 export interface RawKline {
@@ -11,7 +11,7 @@ export interface RawKline {
   volume: number;
 }
 
-function sleep(ms: number): Promise<void> {
+export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -23,8 +23,9 @@ async function fetchWithRetry(url: string): Promise<Response> {
 
     // Retry on 429 (rate limit) and 503 (CloudFront throttle)
     if ((res.status === 429 || res.status === 503) && attempt < MAX_RETRIES - 1) {
-      const backoff = Math.pow(2, attempt) * 1000;
-      console.log(`  Rate limited (${res.status}), retrying in ${backoff}ms...`);
+      const jitter = Math.random() * 1000;
+      const backoff = Math.pow(2, attempt) * 2000 + jitter;
+      console.log(`  Rate limited (${res.status}), retrying in ${Math.round(backoff)}ms...`);
       await sleep(backoff);
       continue;
     }

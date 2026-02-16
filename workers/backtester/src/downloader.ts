@@ -1,4 +1,4 @@
-import { fetchKlines } from "./binance-rest.js";
+import { fetchKlines, sleep } from "./binance-rest.js";
 import { getMissingDays, cacheDay } from "./kline-cache.js";
 import type { RawKline } from "./binance-rest.js";
 
@@ -23,5 +23,6 @@ export async function downloadSymbol(symbol: string, from: Date, to: Date): Prom
 
     await cacheDay(symbol, day, allKlines);
     console.log(`    ${day}: ${allKlines.length} klines cached`);
+    await sleep(1000);
   }
 }
