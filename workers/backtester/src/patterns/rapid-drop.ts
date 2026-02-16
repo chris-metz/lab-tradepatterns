@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import {
   RapidDropDetector,
   type RapidDropDetectorConfig,
@@ -8,20 +9,12 @@ import {
 } from "@tradepatterns/shared";
 import { and, eq } from "drizzle-orm";
 import { loadKlines } from "../kline-cache.js";
-import type { PatternModule } from "./types.js";
+import type { PatternModule, PatternConfigFile } from "./types.js";
 
 interface BacktestResult {
   config: RapidDropDetectorConfig;
   events: RapidDropEvent[];
 }
-
-const DETECTOR_CONFIGS: RapidDropDetectorConfig[] = [
-  { windowSeconds: 30, dropPercent: 2, recordAfterSeconds: 3600, cooldownSeconds: 600 },
-  { windowSeconds: 60, dropPercent: 2, recordAfterSeconds: 3600, cooldownSeconds: 600 },
-  { windowSeconds: 300, dropPercent: 5, recordAfterSeconds: 3600, cooldownSeconds: 600 },
-];
-
-const MAX_TRAILING_SECONDS = Math.max(...DETECTOR_CONFIGS.map((c) => c.recordAfterSeconds));
 
 function median(arr: number[]): number {
   if (arr.length === 0) return 0;
@@ -152,18 +145,36 @@ function printConfigSummary(result: BacktestResult): void {
   }
 }
 
-async function run(symbol: string, date: string): Promise<BacktestResult[]> {
+function loadConfigs(configPath: string): PatternConfigFile {
+  const raw = readFileSync(configPath, "utf-8");
+  const json = JSON.parse(raw);
+  return {
+    from: json.from,
+    to: json.to,
+    configs: json.configs as RapidDropDetectorConfig[],
+  };
+}
+
+function trailingSeconds(configs: unknown[]): number {
+  const typed = configs as RapidDropDetectorConfig[];
+  return Math.max(...typed.map((c) => c.recordAfterSeconds));
+}
+
+async function run(symbol: string, date: string, configs: unknown[]): Promise<BacktestResult[]> {
+  const typedConfigs = configs as RapidDropDetectorConfig[];
+  const maxTrailing = trailingSeconds(configs);
+
   const from = new Date(date + "T00:00:00Z");
   const to = new Date(date + "T23:59:59Z");
-  const extendedTo = new Date(to.getTime() + MAX_TRAILING_SECONDS * 1000);
+  const extendedTo = new Date(to.getTime() + maxTrailing * 1000);
   const originalToMs = to.getTime();
 
-  const results: BacktestResult[] = DETECTOR_CONFIGS.map((config) => ({
+  const results: BacktestResult[] = typedConfigs.map((config) => ({
     config,
     events: [] as RapidDropEvent[],
   }));
 
-  const detectors = DETECTOR_CONFIGS.map(
+  const detectors = typedConfigs.map(
     (config, i) =>
       new RapidDropDetector(config, (event) => {
         if (event.triggerTimestamp <= originalToMs) {
@@ -257,7 +268,8 @@ async function persist(
 
 export const rapidDrop: PatternModule = {
   name: "rapid-drop",
-  trailingSeconds: MAX_TRAILING_SECONDS,
+  trailingSeconds,
+  loadConfigs,
   run,
   persist,
 };

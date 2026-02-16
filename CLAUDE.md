@@ -23,10 +23,12 @@
 - **backtester**: CLI-Tool für historische Pattern-Analyse mit Binance REST API (1s-Klines)
   - Cached Daten als CSV unter `workers/backtester/data/` (gitignored)
   - Ergebnisse in `backtest_*`-Tabellen
-  - Analyse: `npx tsx workers/backtester/src/index.ts --from YYYY-MM-DD --to YYYY-MM-DD [--symbol BTCUSDT] [--pattern rapid-drop] [--no-persist] [--dry-run]`
+  - Detector-Configs in JSON-Dateien unter `workers/backtester/configs/` (inkl. optionalem `from`/`to`-Datumsbereich)
+  - Analyse: `npx tsx workers/backtester/src/index.ts [--config path] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--symbol BTCUSDT] [--pattern rapid-drop] [--no-persist] [--dry-run]`
   - Download: `npx tsx workers/backtester/src/download.ts --from YYYY-MM-DD --to YYYY-MM-DD [--symbol BTCUSDT]`
   - Auswertung: `npx tsx workers/backtester/src/analyze.ts [--symbol BTCUSDT] [--pattern rapid-drop] [--fee 0.2]`
   - Pattern-agnostisch: `--pattern` wählt das Pattern-Modul (default: `rapid-drop`)
+  - `--config` wählt Config-JSON (default: `configs/{pattern}.json`), `--from`/`--to` überschreiben JSON-Werte
   - Metriken: outcome-basiert (maxProfit, maxDrawdown, timeToBreakeven, endResult) mit 1h Beobachtungsfenster
   - Neue Patterns: Modul in `workers/backtester/src/patterns/` + Eintrag in Registry
 

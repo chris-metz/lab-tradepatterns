@@ -30,22 +30,28 @@ Heruntergeladene Klines werden unter `workers/backtester/data/` als CSV gecacht 
 
 ## Backtester
 
-```bash
-# Daten laden und analysieren (default: rapid-drop Pattern)
-npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --symbol BTCUSDT
+Detector-Configs werden aus JSON-Dateien geladen (`workers/backtester/configs/{pattern}.json`). Die JSON kann optional `from`/`to`-Datumsangaben enthalten, die als Defaults dienen.
 
-# Bestimmtes Pattern wählen
-npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --pattern rapid-drop
+```bash
+# Configs aus JSON laden (from/to aus JSON)
+npx tsx workers/backtester/src/index.ts
+
+# CLI überschreibt Datumsbereich aus JSON
+npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31
+
+# Eigene Config-Datei angeben
+npx tsx workers/backtester/src/index.ts --config configs/rapid-drop.json --symbol BTCUSDT
 
 # Nur Analyse, ohne DB-Speicherung
-npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --symbol BTCUSDT --no-persist
+npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --no-persist
 
 # Nur Daten vorladen (ohne Analyse)
 npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --dry-run
 ```
 
 Flags:
-- `--from` / `--to` – Zeitraum (YYYY-MM-DD, Pflicht)
+- `--config` – Pfad zur Config-JSON (default: `configs/{pattern}.json`)
+- `--from` / `--to` – Zeitraum (YYYY-MM-DD, überschreibt JSON-Werte; Pflicht wenn nicht in JSON)
 - `--symbol` – Einzelnes Symbol (default: BTCUSDT, ETHUSDT, SOLUSDT)
 - `--pattern` – Pattern-Modul (default: `rapid-drop`)
 - `--no-persist` – Analyse ohne DB-Speicherung (nur Konsolen-Output)

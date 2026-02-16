@@ -6,6 +6,7 @@ import {
   timestamp,
   integer,
   date,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const backtestRapidDropRuns = pgTable("backtest_rapid_drop_runs", {
@@ -28,4 +29,6 @@ export const backtestRapidDropRuns = pgTable("backtest_rapid_drop_runs", {
   avgTimeToMaxProfit: doublePrecision("avg_time_to_max_profit"),
   avgEndResult: doublePrecision("avg_end_result"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_rapid_drop_symbol_date").on(table.symbol, table.date),
+]);
