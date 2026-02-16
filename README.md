@@ -15,6 +15,19 @@ npm install
 cp .env.example .env  # DATABASE_URL eintragen
 ```
 
+## Download
+
+```bash
+# Kline-Daten herunterladen und als CSV cachen
+npx tsx workers/backtester/src/download.ts --from 2024-08-01 --to 2024-08-31 --symbol BTCUSDT
+```
+
+Flags:
+- `--from` / `--to` – Zeitraum (YYYY-MM-DD, Pflicht)
+- `--symbol` – Einzelnes Symbol (default: BTCUSDT, ETHUSDT, SOLUSDT)
+
+Heruntergeladene Klines werden unter `workers/backtester/data/` als CSV gecacht und bei folgenden Runs wiederverwendet.
+
 ## Backtester
 
 ```bash
@@ -27,7 +40,7 @@ npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --patt
 # Nur Analyse, ohne DB-Speicherung
 npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --symbol BTCUSDT --no-persist
 
-# Nur Daten downloaden (ohne Analyse)
+# Nur Daten vorladen (ohne Analyse)
 npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --dry-run
 ```
 
@@ -37,8 +50,6 @@ Flags:
 - `--pattern` – Pattern-Modul (default: `rapid-drop`)
 - `--no-persist` – Analyse ohne DB-Speicherung (nur Konsolen-Output)
 - `--dry-run` – Nur Download + Cache, keine Analyse
-
-Heruntergeladene Klines werden unter `workers/backtester/data/` als CSV gecacht und bei folgenden Runs wiederverwendet.
 
 ## DB-Schema
 
