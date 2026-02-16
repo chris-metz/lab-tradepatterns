@@ -33,14 +33,15 @@ export interface RapidDropBacktestRun {
   recordAfterSeconds: number;
   cooldownSeconds: number;
   eventsFound: number;
-  avgDrawdownAfterBuy: number | null;
-  avgRecovery1min: number | null;
-  avgRecovery2min: number | null;
-  avgRecovery5min: number | null;
-  avgRecovery10min: number | null;
-  winRate1min: number | null;
-  winRate2min: number | null;
-  winRate5min: number | null;
-  winRate10min: number | null;
+  profitableCount: number | null;
+  avgMaxProfit: number | null;
+  medianMaxProfit: number | null;
+  avgMaxDrawdown: number | null;
+  maxMaxDrawdown: number | null;
+  medianMaxDrawdown: number | null;
+  avgTimeToBreakeven: number | null;
+  medianTimeToBreakeven: number | null;
+  avgTimeToMaxProfit: number | null;
+  avgEndResult: number | null;
   createdAt: Date;
 }

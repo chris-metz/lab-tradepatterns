@@ -16,50 +16,139 @@ interface BacktestResult {
 }
 
 const DETECTOR_CONFIGS: RapidDropDetectorConfig[] = [
-  { windowSeconds: 30, dropPercent: 2, recordAfterSeconds: 600, cooldownSeconds: 600 },
-  { windowSeconds: 60, dropPercent: 2, recordAfterSeconds: 600, cooldownSeconds: 600 },
-  { windowSeconds: 300, dropPercent: 5, recordAfterSeconds: 600, cooldownSeconds: 600 },
+  { windowSeconds: 30, dropPercent: 2, recordAfterSeconds: 3600, cooldownSeconds: 600 },
+  { windowSeconds: 60, dropPercent: 2, recordAfterSeconds: 3600, cooldownSeconds: 600 },
+  { windowSeconds: 300, dropPercent: 5, recordAfterSeconds: 3600, cooldownSeconds: 600 },
 ];
 
 const MAX_TRAILING_SECONDS = Math.max(...DETECTOR_CONFIGS.map((c) => c.recordAfterSeconds));
 
-const SUMMARY_INTERVALS = [60, 120, 300, 600]; // seconds after trigger
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
-function printEventSummary(event: RapidDropEvent, index: number): void {
-  const triggerTime = new Date(event.triggerTimestamp).toISOString().slice(11, 19);
-  const drawdownFromTrigger = ((event.triggerPrice - event.lowestPrice) / event.triggerPrice) * 100;
-  const drawdownDelay = ((event.lowestPriceTimestamp - event.triggerTimestamp) / 1000).toFixed(0);
+interface EventOutcome {
+  maxProfit: number;
+  maxDrawdown: number;
+  timeToBreakeven: number | null;
+  timeToMaxProfit: number;
+  endResult: number;
+}
 
-  console.log(`  Event ${index + 1}: Drop -${event.dropPercent.toFixed(1)}% erkannt bei ${event.triggerPrice.toFixed(2)} (${triggerTime} UTC)`);
-  console.log(`    Weiterer Drawdown nach Kauf: -${drawdownFromTrigger.toFixed(2)}% (Tief: ${event.lowestPrice.toFixed(2)} nach ${drawdownDelay}s)`);
+function computeEventOutcome(event: RapidDropEvent): EventOutcome | null {
+  if (event.pricesAfter.length === 0) return null;
 
-  const recoveryParts: string[] = [];
-  for (const seconds of SUMMARY_INTERVALS) {
-    const targetTs = event.triggerTimestamp + seconds * 1000;
-    const point = event.pricesAfter.reduce<PricePoint | null>((closest, p) => {
-      if (!closest) return p;
-      return Math.abs(p.timestamp - targetTs) < Math.abs(closest.timestamp - targetTs) ? p : closest;
-    }, null);
+  let maxProfit = -Infinity;
+  let maxDrawdown = 0;
+  let timeToBreakeven: number | null = null;
+  let maxProfitTimestamp = event.triggerTimestamp;
 
-    if (point) {
-      const change = ((point.price - event.triggerPrice) / event.triggerPrice) * 100;
-      const label = seconds >= 60 ? `${seconds / 60}min` : `${seconds}s`;
-      recoveryParts.push(`${change >= 0 ? "+" : ""}${change.toFixed(2)}% nach ${label}`);
+  for (const p of event.pricesAfter) {
+    const change = ((p.price - event.triggerPrice) / event.triggerPrice) * 100;
+    const drawdown = ((event.triggerPrice - p.price) / event.triggerPrice) * 100;
+
+    if (change > maxProfit) {
+      maxProfit = change;
+      maxProfitTimestamp = p.timestamp;
+    }
+    if (drawdown > maxDrawdown) {
+      maxDrawdown = drawdown;
+    }
+    if (timeToBreakeven === null && p.price > event.triggerPrice) {
+      timeToBreakeven = (p.timestamp - event.triggerTimestamp) / 1000;
     }
   }
 
-  if (recoveryParts.length > 0) {
-    console.log(`    Recovery: ${recoveryParts.join(", ")}`);
+  const lastPrice = event.pricesAfter[event.pricesAfter.length - 1].price;
+  const endResult = ((lastPrice - event.triggerPrice) / event.triggerPrice) * 100;
+  const timeToMaxProfit = (maxProfitTimestamp - event.triggerTimestamp) / 1000;
+
+  return {
+    maxProfit: maxProfit === -Infinity ? 0 : maxProfit,
+    maxDrawdown,
+    timeToBreakeven,
+    timeToMaxProfit,
+    endResult,
+  };
+}
+
+function computeAggregates(events: RapidDropEvent[]) {
+  if (events.length === 0) {
+    return {
+      profitableCount: null,
+      avgMaxProfit: null, medianMaxProfit: null,
+      avgMaxDrawdown: null, maxMaxDrawdown: null, medianMaxDrawdown: null,
+      avgTimeToBreakeven: null, medianTimeToBreakeven: null,
+      avgTimeToMaxProfit: null, avgEndResult: null,
+    };
   }
+
+  const outcomes = events.map(computeEventOutcome).filter((o): o is EventOutcome => o !== null);
+  if (outcomes.length === 0) {
+    return {
+      profitableCount: null,
+      avgMaxProfit: null, medianMaxProfit: null,
+      avgMaxDrawdown: null, maxMaxDrawdown: null, medianMaxDrawdown: null,
+      avgTimeToBreakeven: null, medianTimeToBreakeven: null,
+      avgTimeToMaxProfit: null, avgEndResult: null,
+    };
+  }
+
+  const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+  const maxProfits = outcomes.map((o) => o.maxProfit);
+  const maxDrawdowns = outcomes.map((o) => o.maxDrawdown);
+  const breakevenTimes = outcomes.filter((o) => o.timeToBreakeven !== null).map((o) => o.timeToBreakeven!);
+  const endResults = outcomes.map((o) => o.endResult);
+  const timesToMaxProfit = outcomes.map((o) => o.timeToMaxProfit);
+
+  return {
+    profitableCount: breakevenTimes.length,
+    avgMaxProfit: avg(maxProfits),
+    medianMaxProfit: median(maxProfits),
+    avgMaxDrawdown: avg(maxDrawdowns),
+    maxMaxDrawdown: Math.max(...maxDrawdowns),
+    medianMaxDrawdown: median(maxDrawdowns),
+    avgTimeToBreakeven: breakevenTimes.length > 0 ? avg(breakevenTimes) : null,
+    medianTimeToBreakeven: breakevenTimes.length > 0 ? median(breakevenTimes) : null,
+    avgTimeToMaxProfit: avg(timesToMaxProfit),
+    avgEndResult: avg(endResults),
+  };
+}
+
+function printEventSummary(event: RapidDropEvent, index: number): void {
+  const triggerTime = new Date(event.triggerTimestamp).toISOString().slice(11, 19);
+  const outcome = computeEventOutcome(event);
+
+  console.log(`  Event ${index + 1}: Drop -${event.dropPercent.toFixed(1)}% erkannt bei ${event.triggerPrice.toFixed(2)} (${triggerTime} UTC)`);
+
+  if (!outcome) return;
+
+  const breakevenStr = outcome.timeToBreakeven !== null
+    ? `${outcome.timeToBreakeven.toFixed(0)}s`
+    : "nie";
+  console.log(`    MaxProfit: +${outcome.maxProfit.toFixed(2)}% (nach ${outcome.timeToMaxProfit.toFixed(0)}s) | MaxDrawdown: -${outcome.maxDrawdown.toFixed(2)}% | Breakeven: ${breakevenStr} | End: ${outcome.endResult >= 0 ? "+" : ""}${outcome.endResult.toFixed(2)}%`);
 }
 
 function printConfigSummary(result: BacktestResult): void {
   const { config, events } = result;
   if (events.length === 0) return;
 
-  console.log(`\n  Config ${config.windowSeconds}s / ${config.dropPercent}% (${events.length} Events):`);
+  const aggregates = computeAggregates(events);
+  const winRate = aggregates.profitableCount !== null
+    ? ((aggregates.profitableCount / events.length) * 100).toFixed(1)
+    : "N/A";
+
+  console.log(`\n  Config ${config.windowSeconds}s / ${config.dropPercent}% (${events.length} Events, WinRate: ${winRate}%):`);
   for (let i = 0; i < events.length; i++) {
     printEventSummary(events[i], i);
+  }
+
+  if (aggregates.avgMaxProfit !== null) {
+    console.log(`  --- Aggregiert: AvgMaxProfit +${aggregates.avgMaxProfit.toFixed(2)}% | AvgMaxDD -${aggregates.avgMaxDrawdown!.toFixed(2)}% | AvgBreakeven ${aggregates.avgTimeToBreakeven !== null ? aggregates.avgTimeToBreakeven.toFixed(0) + "s" : "N/A"} | AvgEnd ${aggregates.avgEndResult! >= 0 ? "+" : ""}${aggregates.avgEndResult!.toFixed(2)}%`);
   }
 }
 
@@ -107,47 +196,6 @@ async function run(symbol: string, date: string): Promise<BacktestResult[]> {
   return results;
 }
 
-function computeRecoveryAtInterval(event: RapidDropEvent, seconds: number): number | null {
-  if (event.pricesAfter.length === 0) return null;
-  const targetTs = event.triggerTimestamp + seconds * 1000;
-  const point = event.pricesAfter.reduce((closest, p) =>
-    Math.abs(p.timestamp - targetTs) < Math.abs(closest.timestamp - targetTs) ? p : closest,
-  );
-  return ((point.price - event.triggerPrice) / event.triggerPrice) * 100;
-}
-
-function computeAggregates(events: RapidDropEvent[]) {
-  if (events.length === 0) {
-    return {
-      avgDrawdownAfterBuy: null,
-      avgRecovery1min: null, avgRecovery2min: null, avgRecovery5min: null, avgRecovery10min: null,
-      winRate1min: null, winRate2min: null, winRate5min: null, winRate10min: null,
-    };
-  }
-
-  const drawdowns = events.map((e) => ((e.triggerPrice - e.lowestPrice) / e.triggerPrice) * 100);
-  const r1 = events.map((e) => computeRecoveryAtInterval(e, 60));
-  const r2 = events.map((e) => computeRecoveryAtInterval(e, 120));
-  const r5 = events.map((e) => computeRecoveryAtInterval(e, 300));
-  const r10 = events.map((e) => computeRecoveryAtInterval(e, 600));
-
-  const avg = (arr: (number | null)[]) => {
-    const valid = arr.filter((v): v is number => v !== null);
-    return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
-  };
-
-  const winRate = (arr: (number | null)[]) => {
-    const valid = arr.filter((v): v is number => v !== null);
-    return valid.length > 0 ? (valid.filter((v) => v > 0).length / valid.length) * 100 : null;
-  };
-
-  return {
-    avgDrawdownAfterBuy: avg(drawdowns),
-    avgRecovery1min: avg(r1), avgRecovery2min: avg(r2), avgRecovery5min: avg(r5), avgRecovery10min: avg(r10),
-    winRate1min: winRate(r1), winRate2min: winRate(r2), winRate5min: winRate(r5), winRate10min: winRate(r10),
-  };
-}
-
 function configKey(c: RapidDropDetectorConfig): string {
   return `${c.windowSeconds}|${c.dropPercent}|${c.recordAfterSeconds}|${c.cooldownSeconds}`;
 }
@@ -160,7 +208,6 @@ async function persist(
 ): Promise<void> {
   const typedResults = results as BacktestResult[];
 
-  // Check which configs already exist for this symbol+date
   const existing = await db
     .select({
       windowSeconds: schema.backtestRapidDropRuns.windowSeconds,

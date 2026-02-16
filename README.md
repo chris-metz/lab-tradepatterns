@@ -53,6 +53,30 @@ Flags:
 
 Analyse läuft Tag-für-Tag. Bereits vorhandene Config+Symbol+Tag-Kombinationen werden beim Persistieren übersprungen, sodass Läufe inkrementell erweitert werden können (mehr Tage oder neue Configs).
 
+Pro Event werden outcome-basierte Metriken berechnet (1h Beobachtungsfenster nach Trigger):
+- **MaxProfit** – maximaler Gewinn (%)
+- **MaxDrawdown** – maximaler Drawdown vom Triggerpreis (%)
+- **TimeToBreakeven** – Sekunden bis Preis > Triggerpreis
+- **EndResult** – P&L am Ende des Beobachtungsfensters (%)
+
+## Analyse
+
+```bash
+# Aggregierte Auswertung über alle Tage (mit Expectancy, Win Rate)
+npx tsx workers/backtester/src/analyze.ts
+
+# Für ein bestimmtes Symbol
+npx tsx workers/backtester/src/analyze.ts --symbol BTCUSDT
+
+# Mit angepasster Fee (default: 0.2% pro Seite)
+npx tsx workers/backtester/src/analyze.ts --fee 0.1
+```
+
+Flags:
+- `--symbol` – Einzelnes Symbol (default: alle)
+- `--pattern` – Pattern-Modul (default: `rapid-drop`)
+- `--fee` – Fee pro Seite in % (default: `0.2`)
+
 ## DB-Schema
 
 ```bash
