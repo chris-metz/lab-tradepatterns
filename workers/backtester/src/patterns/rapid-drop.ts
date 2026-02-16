@@ -22,6 +22,47 @@ const DETECTOR_CONFIGS: RapidDropDetectorConfig[] = [
 
 const MAX_TRAILING_SECONDS = Math.max(...DETECTOR_CONFIGS.map((c) => c.recordAfterSeconds));
 
+const SUMMARY_INTERVALS = [60, 120, 300, 600]; // seconds after trigger
+
+function printEventSummary(event: RapidDropEvent, index: number): void {
+  const triggerTime = new Date(event.triggerTimestamp).toISOString().slice(11, 19);
+  const drawdownFromTrigger = ((event.triggerPrice - event.lowestPrice) / event.triggerPrice) * 100;
+  const drawdownDelay = ((event.lowestPriceTimestamp - event.triggerTimestamp) / 1000).toFixed(0);
+
+  console.log(`  Event ${index + 1}: Drop -${event.dropPercent.toFixed(1)}% erkannt bei ${event.triggerPrice.toFixed(2)} (${triggerTime} UTC)`);
+  console.log(`    Weiterer Drawdown nach Kauf: -${drawdownFromTrigger.toFixed(2)}% (Tief: ${event.lowestPrice.toFixed(2)} nach ${drawdownDelay}s)`);
+
+  const recoveryParts: string[] = [];
+  for (const seconds of SUMMARY_INTERVALS) {
+    const targetTs = event.triggerTimestamp + seconds * 1000;
+    // Find closest price point to target timestamp
+    const point = event.pricesAfter.reduce<PricePoint | null>((closest, p) => {
+      if (!closest) return p;
+      return Math.abs(p.timestamp - targetTs) < Math.abs(closest.timestamp - targetTs) ? p : closest;
+    }, null);
+
+    if (point) {
+      const change = ((point.price - event.triggerPrice) / event.triggerPrice) * 100;
+      const label = seconds >= 60 ? `${seconds / 60}min` : `${seconds}s`;
+      recoveryParts.push(`${change >= 0 ? "+" : ""}${change.toFixed(2)}% nach ${label}`);
+    }
+  }
+
+  if (recoveryParts.length > 0) {
+    console.log(`    Recovery: ${recoveryParts.join(", ")}`);
+  }
+}
+
+function printConfigSummary(result: BacktestResult): void {
+  const { config, events } = result;
+  if (events.length === 0) return;
+
+  console.log(`\n  Config ${config.windowSeconds}s / ${config.dropPercent}% (${events.length} Events):`);
+  for (let i = 0; i < events.length; i++) {
+    printEventSummary(events[i], i);
+  }
+}
+
 async function run(symbol: string, from: Date, to: Date): Promise<BacktestResult[]> {
   const extendedTo = new Date(to.getTime() + MAX_TRAILING_SECONDS * 1000);
   const originalToMs = to.getTime();
@@ -60,7 +101,54 @@ async function run(symbol: string, from: Date, to: Date): Promise<BacktestResult
   }
 
   console.log(`\nProcessed ${dayCount} days for ${symbol}`);
+
+  // Print recovery summary
+  for (const result of results) {
+    printConfigSummary(result);
+  }
+
   return results;
+}
+
+function computeRecoveryAtInterval(event: RapidDropEvent, seconds: number): number | null {
+  if (event.pricesAfter.length === 0) return null;
+  const targetTs = event.triggerTimestamp + seconds * 1000;
+  const point = event.pricesAfter.reduce((closest, p) =>
+    Math.abs(p.timestamp - targetTs) < Math.abs(closest.timestamp - targetTs) ? p : closest,
+  );
+  return ((point.price - event.triggerPrice) / event.triggerPrice) * 100;
+}
+
+function computeAggregates(events: RapidDropEvent[]) {
+  if (events.length === 0) {
+    return {
+      avgDrawdownAfterBuy: null,
+      avgRecovery1min: null, avgRecovery2min: null, avgRecovery5min: null, avgRecovery10min: null,
+      winRate1min: null, winRate2min: null, winRate5min: null, winRate10min: null,
+    };
+  }
+
+  const drawdowns = events.map((e) => ((e.triggerPrice - e.lowestPrice) / e.triggerPrice) * 100);
+  const r1 = events.map((e) => computeRecoveryAtInterval(e, 60));
+  const r2 = events.map((e) => computeRecoveryAtInterval(e, 120));
+  const r5 = events.map((e) => computeRecoveryAtInterval(e, 300));
+  const r10 = events.map((e) => computeRecoveryAtInterval(e, 600));
+
+  const avg = (arr: (number | null)[]) => {
+    const valid = arr.filter((v): v is number => v !== null);
+    return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
+  };
+
+  const winRate = (arr: (number | null)[]) => {
+    const valid = arr.filter((v): v is number => v !== null);
+    return valid.length > 0 ? (valid.filter((v) => v > 0).length / valid.length) * 100 : null;
+  };
+
+  return {
+    avgDrawdownAfterBuy: avg(drawdowns),
+    avgRecovery1min: avg(r1), avgRecovery2min: avg(r2), avgRecovery5min: avg(r5), avgRecovery10min: avg(r10),
+    winRate1min: winRate(r1), winRate2min: winRate(r2), winRate5min: winRate(r5), winRate10min: winRate(r10),
+  };
 }
 
 async function persist(
@@ -74,67 +162,26 @@ async function persist(
 
   for (const result of typedResults) {
     const { config, events } = result;
+    const aggregates = computeAggregates(events);
 
-    await db.transaction(async (tx) => {
-      const [backTestRun] = await tx
-        .insert(schema.backtestRapidDropRuns)
-        .values({
-          symbol,
-          fromTime: from,
-          toTime: to,
-          windowSeconds: config.windowSeconds,
-          dropPercent: config.dropPercent,
-          recordAfterSeconds: config.recordAfterSeconds,
-          cooldownSeconds: config.cooldownSeconds,
-          eventsFound: events.length,
-        })
-        .returning({ id: schema.backtestRapidDropRuns.id });
+    const [run] = await db
+      .insert(schema.backtestRapidDropRuns)
+      .values({
+        symbol,
+        fromTime: from,
+        toTime: to,
+        windowSeconds: config.windowSeconds,
+        dropPercent: config.dropPercent,
+        recordAfterSeconds: config.recordAfterSeconds,
+        cooldownSeconds: config.cooldownSeconds,
+        eventsFound: events.length,
+        ...aggregates,
+      })
+      .returning({ id: schema.backtestRapidDropRuns.id });
 
-      for (const event of events) {
-        const [inserted] = await tx
-          .insert(schema.backtestRapidDropEvents)
-          .values({
-            runId: backTestRun.id,
-            symbol: event.symbol,
-            triggerPrice: event.triggerPrice,
-            triggerTimestamp: new Date(event.triggerTimestamp),
-            windowHigh: event.windowHigh,
-            dropPercent: event.dropPercent,
-            configDropPercent: event.configDropPercent,
-            lowestPrice: event.lowestPrice,
-            lowestPriceTimestamp: new Date(event.lowestPriceTimestamp),
-            windowSeconds: event.windowSeconds,
-          })
-          .returning({ id: schema.backtestRapidDropEvents.id });
-
-        const pricePointRows = [
-          ...event.pricesBefore.map((p) => ({
-            eventId: inserted.id,
-            phase: "before" as const,
-            timestamp: new Date(p.timestamp),
-            price: p.price,
-          })),
-          ...event.pricesAfter.map((p) => ({
-            eventId: inserted.id,
-            phase: "after" as const,
-            timestamp: new Date(p.timestamp),
-            price: p.price,
-          })),
-        ];
-
-        if (pricePointRows.length > 0) {
-          const BATCH_SIZE = 500;
-          for (let i = 0; i < pricePointRows.length; i += BATCH_SIZE) {
-            const batch = pricePointRows.slice(i, i + BATCH_SIZE);
-            await tx.insert(schema.backtestRapidDropPricePoints).values(batch);
-          }
-        }
-      }
-
-      console.log(
-        `  Run persisted: ${config.windowSeconds}s/${config.dropPercent}% → ${events.length} events (${backTestRun.id})`,
-      );
-    });
+    console.log(
+      `  Run persisted: ${config.windowSeconds}s/${config.dropPercent}% → ${events.length} events (${run.id})`,
+    );
   }
 }
 

@@ -20,12 +20,13 @@ const { values } = parseArgs({
     from: { type: "string" },
     to: { type: "string" },
     pattern: { type: "string", default: "rapid-drop" },
+    "no-persist": { type: "boolean", default: false },
     "dry-run": { type: "boolean", default: false },
   },
 });
 
 if (!values.from || !values.to) {
-  console.error("Usage: npx tsx src/index.ts --from YYYY-MM-DD --to YYYY-MM-DD [--symbol BTCUSDT] [--pattern rapid-drop] [--dry-run]");
+  console.error("Usage: npx tsx src/index.ts --from YYYY-MM-DD --to YYYY-MM-DD [--symbol BTCUSDT] [--pattern rapid-drop] [--no-persist] [--dry-run]");
   process.exit(1);
 }
 
@@ -34,6 +35,7 @@ const symbols = values.symbol ? [values.symbol.toUpperCase()] : DEFAULT_SYMBOLS;
 const from = new Date(values.from + "T00:00:00Z");
 const to = new Date(values.to + "T23:59:59Z");
 const dryRun = values["dry-run"] ?? false;
+const noPersist = values["no-persist"] ?? false;
 
 const startTime = performance.now();
 
@@ -63,7 +65,8 @@ async function downloadSymbol(symbol: string): Promise<void> {
 }
 
 async function main() {
-  console.log(`Backtest [${patternModule.name}]: ${symbols.join(", ")} from ${values.from} to ${values.to}${dryRun ? " (dry-run)" : ""}\n`);
+  const flags = [dryRun && "dry-run", noPersist && "no-persist"].filter(Boolean).join(", ");
+  console.log(`Backtest [${patternModule.name}]: ${symbols.join(", ")} from ${values.from} to ${values.to}${flags ? ` (${flags})` : ""}\n`);
 
   // Phase 1: Download
   for (const symbol of symbols) {
@@ -78,14 +81,16 @@ async function main() {
   }
 
   // Phase 2: Analysis + Persist
-  const db = createDb(process.env.DATABASE_URL!);
+  const db = noPersist ? null : createDb(process.env.DATABASE_URL!);
 
   for (const symbol of symbols) {
     console.log(`\nAnalyzing ${symbol} [${patternModule.name}]...`);
     const results = await patternModule.run(symbol, from, to);
 
-    console.log(`\nPersisting results for ${symbol}...`);
-    await patternModule.persist(db, symbol, from, to, results);
+    if (db) {
+      console.log(`\nPersisting results for ${symbol}...`);
+      await patternModule.persist(db, symbol, from, to, results);
+    }
   }
 
   // Summary
