@@ -83,10 +83,81 @@ Flags:
 - `--pattern` – Pattern-Modul (default: `rapid-drop`)
 - `--fee` – Fee pro Seite in % (default: `0.2`)
 
-## DB-Schema
+## Datenbank
+
+### Quick-Access (für Ad-hoc-Abfragen)
+
+Die `DATABASE_URL` steht in `.env` im Projekt-Root. Für schnelle Abfragen `psql` nutzen:
 
 ```bash
-# Schema-Änderungen pushen
+# .env laden und psql starten
+source <(grep DATABASE_URL .env) && psql "$DATABASE_URL"
+
+# Einzeiler-Query (ohne interaktive Session)
+source <(grep DATABASE_URL .env) && psql "$DATABASE_URL" -c "SELECT count(*) FROM backtest_rapid_drop_runs"
+```
+
+### Tabellen & Spalten
+
+| Tabelle | Beschreibung |
+|---|---|
+| `backtest_rapid_drop_runs` | Aggregierte Backtest-Ergebnisse für Rapid-Drop-Pattern (pro Tag/Config/Symbol) |
+
+**`backtest_rapid_drop_runs`** – Spalten:
+
+| Spalte | Typ | Beschreibung |
+|---|---|---|
+| `id` | uuid (PK) | Auto-generiert |
+| `symbol` | varchar(20) | z.B. `BTCUSDT`, `ETHUSDT` |
+| `date` | date | Tag der Analyse |
+| `window_seconds` | integer | Zeitfenster für Drop-Erkennung |
+| `drop_percent` | double | Schwellwert für Drop in % |
+| `record_after_seconds` | integer | Beobachtungsfenster nach Trigger |
+| `cooldown_seconds` | integer | Cooldown zwischen Events |
+| `events_found` | integer | Anzahl erkannter Events am Tag |
+| `profitable_count` | integer | Davon profitabel |
+| `avg_max_profit` | double | Durchschn. max. Gewinn (%) |
+| `median_max_profit` | double | Median max. Gewinn (%) |
+| `avg_max_drawdown` | double | Durchschn. max. Drawdown (%) |
+| `max_max_drawdown` | double | Größter Drawdown (%) |
+| `median_max_drawdown` | double | Median Drawdown (%) |
+| `avg_time_to_breakeven` | double | Durchschn. Sekunden bis Breakeven |
+| `median_time_to_breakeven` | double | Median Sekunden bis Breakeven |
+| `avg_time_to_max_profit` | double | Durchschn. Sekunden bis max. Gewinn |
+| `avg_end_result` | double | Durchschn. P&L am Ende des Fensters (%) |
+| `created_at` | timestamptz | Zeitpunkt des Eintrags |
+
+Index: `idx_rapid_drop_symbol_date` auf `(symbol, date)`.
+
+Neue Patterns bekommen eigene Tabellen nach dem Schema `backtest_{name}_runs`.
+
+### Nützliche Queries
+
+```sql
+-- Welche Symbole sind in der DB?
+SELECT DISTINCT symbol FROM backtest_rapid_drop_runs;
+
+-- Welcher Zeitraum ist abgedeckt?
+SELECT symbol, min(date), max(date), count(*) FROM backtest_rapid_drop_runs GROUP BY symbol;
+
+-- Beste Configs nach avg Profit (mind. 100 Events)
+SELECT window_seconds, drop_percent, count(*) as days,
+       sum(events_found) as total_events,
+       round(avg(avg_max_profit)::numeric, 3) as profit,
+       round(avg(avg_max_drawdown)::numeric, 3) as drawdown
+FROM backtest_rapid_drop_runs
+WHERE events_found > 0
+GROUP BY window_seconds, drop_percent
+HAVING sum(events_found) >= 100
+ORDER BY profit DESC;
+
+-- Alle Tabellen im Schema anzeigen
+SELECT tablename FROM pg_tables WHERE schemaname = 'public';
+```
+
+### Schema-Änderungen
+
+```bash
 cd packages/shared && npx drizzle-kit push
 ```
 
