@@ -1,47 +1,47 @@
 # Trade Patterns
 
-Analyse von Trading-Patterns im Kryptomarkt. Erkennt Preisbewegungen in Echtzeit (z.B. schnelle Drops bei Bitcoin) und zeichnet das Verhalten danach auf.
+Analyse von Trading-Patterns im Kryptomarkt. Erkennt Preismuster (z.B. schnelle Drops) in historischen Daten mittels Backtesting und zeichnet das Verhalten vor und nach dem Event auf.
 
 ## Struktur
 
 - **apps/web** – Next.js Dashboard zur Visualisierung
-- **workers/price-monitor** – Hintergrund-Prozess für Binance-WebSocket und Pattern-Erkennung
-- **packages/shared** – Geteilte TypeScript-Types und Utilities
+- **workers/backtester** – CLI-Tool für historisches Backtesting mit Binance 1s-Klines
+- **packages/shared** – Geteilte Types, DB-Schema und Pattern-Detektoren
 
 ## Setup
 
 ```bash
 npm install
+cp .env.example .env  # DATABASE_URL eintragen
 ```
 
-## Entwicklung
+## Backtester
 
 ```bash
-# Dashboard starten
-npm run dev -w apps/web
+# Daten laden und analysieren
+npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --symbol BTCUSDT
 
-# Price Monitor starten (mit Hot-Reload)
-npm run dev -w workers/price-monitor
+# Nur Daten downloaden (ohne Analyse)
+npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --dry-run
 ```
 
-## Dienste
+Flags:
+- `--from` / `--to` – Zeitraum (YYYY-MM-DD, Pflicht)
+- `--symbol` – Einzelnes Symbol (default: BTCUSDT, ETHUSDT, SOLUSDT)
+- `--dry-run` – Nur Download + Cache, keine Analyse
 
-Der Price Monitor läuft als systemd User-Service:
+Heruntergeladene Klines werden unter `workers/backtester/data/` als CSV gecacht und bei folgenden Runs wiederverwendet.
+
+## DB-Schema
 
 ```bash
-# Status prüfen
-systemctl --user status tradepatterns-monitor
-
-# Logs verfolgen
-journalctl --user -u tradepatterns-monitor -f
-
-# Nach Änderungen am Worker neu starten
-systemctl --user restart tradepatterns-monitor
+# Schema-Änderungen pushen
+cd packages/shared && npx drizzle-kit push
 ```
 
 ## Tech-Stack
 
 - TypeScript
 - Next.js (App Router)
-- Binance WebSocket API
+- Binance REST API (1s-Klines)
 - PostgreSQL + Drizzle ORM
