@@ -9,8 +9,7 @@ import { parseArgs } from "node:util";
 import { createDb } from "@tradepatterns/shared";
 import { fetchKlines } from "./binance-rest.js";
 import { getMissingDays, cacheDay } from "./kline-cache.js";
-import { runBacktest } from "./run-backtest.js";
-import { persistResults } from "./persist-results.js";
+import { getPattern } from "./patterns/index.js";
 import type { RawKline } from "./binance-rest.js";
 
 const DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
@@ -20,15 +19,17 @@ const { values } = parseArgs({
     symbol: { type: "string" },
     from: { type: "string" },
     to: { type: "string" },
+    pattern: { type: "string", default: "rapid-drop" },
     "dry-run": { type: "boolean", default: false },
   },
 });
 
 if (!values.from || !values.to) {
-  console.error("Usage: npx tsx src/index.ts --from YYYY-MM-DD --to YYYY-MM-DD [--symbol BTCUSDT] [--dry-run]");
+  console.error("Usage: npx tsx src/index.ts --from YYYY-MM-DD --to YYYY-MM-DD [--symbol BTCUSDT] [--pattern rapid-drop] [--dry-run]");
   process.exit(1);
 }
 
+const patternModule = getPattern(values.pattern!);
 const symbols = values.symbol ? [values.symbol.toUpperCase()] : DEFAULT_SYMBOLS;
 const from = new Date(values.from + "T00:00:00Z");
 const to = new Date(values.to + "T23:59:59Z");
@@ -37,8 +38,7 @@ const dryRun = values["dry-run"] ?? false;
 const startTime = performance.now();
 
 async function downloadSymbol(symbol: string): Promise<void> {
-  // Extend download range by max recordAfterSeconds (600s) to capture trailing data
-  const extendedTo = new Date(to.getTime() + 600 * 1000);
+  const extendedTo = new Date(to.getTime() + patternModule.trailingSeconds * 1000);
   const missing = await getMissingDays(symbol, from, extendedTo);
 
   if (missing.length === 0) {
@@ -63,7 +63,7 @@ async function downloadSymbol(symbol: string): Promise<void> {
 }
 
 async function main() {
-  console.log(`Backtest: ${symbols.join(", ")} from ${values.from} to ${values.to}${dryRun ? " (dry-run)" : ""}\n`);
+  console.log(`Backtest [${patternModule.name}]: ${symbols.join(", ")} from ${values.from} to ${values.to}${dryRun ? " (dry-run)" : ""}\n`);
 
   // Phase 1: Download
   for (const symbol of symbols) {
@@ -77,16 +77,15 @@ async function main() {
     process.exit(0);
   }
 
-  // Phase 2: Analysis
+  // Phase 2: Analysis + Persist
   const db = createDb(process.env.DATABASE_URL!);
 
   for (const symbol of symbols) {
-    console.log(`\nAnalyzing ${symbol}...`);
-    const results = await runBacktest(symbol, from, to);
+    console.log(`\nAnalyzing ${symbol} [${patternModule.name}]...`);
+    const results = await patternModule.run(symbol, from, to);
 
-    // Phase 3: Persist
     console.log(`\nPersisting results for ${symbol}...`);
-    await persistResults(db, symbol, from, to, results);
+    await patternModule.persist(db, symbol, from, to, results);
   }
 
   // Summary

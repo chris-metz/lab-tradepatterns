@@ -14,7 +14,7 @@ export const pricePointPhase = pgEnum("price_point_phase", [
   "after",
 ]);
 
-export const backtestRuns = pgTable("backtest_runs", {
+export const backtestRapidDropRuns = pgTable("backtest_rapid_drop_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
   symbol: varchar("symbol", { length: 20 }).notNull(),
   fromTime: timestamp("from_time", { withTimezone: true }).notNull(),
@@ -31,7 +31,7 @@ export const backtestRapidDropEvents = pgTable("backtest_rapid_drop_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   runId: uuid("run_id")
     .notNull()
-    .references(() => backtestRuns.id),
+    .references(() => backtestRapidDropRuns.id),
   symbol: varchar("symbol", { length: 20 }).notNull(),
   triggerPrice: doublePrecision("trigger_price").notNull(),
   triggerTimestamp: timestamp("trigger_timestamp", { withTimezone: true }).notNull(),

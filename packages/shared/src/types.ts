@@ -24,7 +24,7 @@ export interface RapidDropEvent {
   pricesAfter: PricePoint[];
 }
 
-export interface BacktestRun {
+export interface RapidDropBacktestRun {
   id: string;
   symbol: string;
   fromTime: Date;

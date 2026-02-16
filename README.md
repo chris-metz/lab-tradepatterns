@@ -18,8 +18,11 @@ cp .env.example .env  # DATABASE_URL eintragen
 ## Backtester
 
 ```bash
-# Daten laden und analysieren
+# Daten laden und analysieren (default: rapid-drop Pattern)
 npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --symbol BTCUSDT
+
+# Bestimmtes Pattern wählen
+npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --pattern rapid-drop
 
 # Nur Daten downloaden (ohne Analyse)
 npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --dry-run
@@ -28,6 +31,7 @@ npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --dry-
 Flags:
 - `--from` / `--to` – Zeitraum (YYYY-MM-DD, Pflicht)
 - `--symbol` – Einzelnes Symbol (default: BTCUSDT, ETHUSDT, SOLUSDT)
+- `--pattern` – Pattern-Modul (default: `rapid-drop`)
 - `--dry-run` – Nur Download + Cache, keine Analyse
 
 Heruntergeladene Klines werden unter `workers/backtester/data/` als CSV gecacht und bei folgenden Runs wiederverwendet.

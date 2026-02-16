@@ -22,7 +22,9 @@
 - **backtester**: CLI-Tool für historische Pattern-Analyse mit Binance REST API (1s-Klines)
   - Cached Daten als CSV unter `workers/backtester/data/` (gitignored)
   - Ergebnisse in `backtest_*`-Tabellen
-  - Usage: `npx tsx workers/backtester/src/index.ts --from YYYY-MM-DD --to YYYY-MM-DD [--symbol BTCUSDT] [--dry-run]`
+  - Usage: `npx tsx workers/backtester/src/index.ts --from YYYY-MM-DD --to YYYY-MM-DD [--symbol BTCUSDT] [--pattern rapid-drop] [--dry-run]`
+  - Pattern-agnostisch: `--pattern` wählt das Pattern-Modul (default: `rapid-drop`)
+  - Neue Patterns: Modul in `workers/backtester/src/patterns/` + Eintrag in Registry
 
 ## Offene Entscheidungen
 
