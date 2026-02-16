@@ -1,4 +1,4 @@
-import type { PricePoint, RapidDropEvent } from "@tradepatterns/shared";
+import type { PricePoint, RapidDropEvent } from "../../types.js";
 import { randomUUID } from "crypto";
 
 export interface RapidDropDetectorConfig {
@@ -62,10 +62,6 @@ export class RapidDropDetector {
       }
 
       if (point.timestamp >= this.activeRecording.endTimestamp) {
-        console.log(
-          `Recording complete: ${this.activeRecording.event.pricesAfter.length} data points, ` +
-            `max drop: -${this.activeRecording.event.dropPercent.toFixed(2)}%`,
-        );
         this.onComplete(this.activeRecording.event);
         this.activeRecording = null;
       }
@@ -99,12 +95,6 @@ export class RapidDropDetector {
         pricesBefore: [...this.window],
         pricesAfter: [],
       };
-
-      console.log(
-        `Drop detected: -${dropPercent.toFixed(2)}% in ${this.config.windowSeconds}s ` +
-          `(${windowHigh.toFixed(2)} → ${point.price.toFixed(2)}). ` +
-          `Recording next ${this.config.recordAfterSeconds}s...`,
-      );
 
       this.activeRecording = {
         event,

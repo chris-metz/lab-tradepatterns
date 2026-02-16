@@ -14,8 +14,24 @@ export const pricePointPhase = pgEnum("price_point_phase", [
   "after",
 ]);
 
-export const rapidDropEvents = pgTable("rapid_drop_events", {
+export const backtestRuns = pgTable("backtest_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  fromTime: timestamp("from_time", { withTimezone: true }).notNull(),
+  toTime: timestamp("to_time", { withTimezone: true }).notNull(),
+  windowSeconds: integer("window_seconds").notNull(),
+  dropPercent: doublePrecision("drop_percent").notNull(),
+  recordAfterSeconds: integer("record_after_seconds").notNull(),
+  cooldownSeconds: integer("cooldown_seconds").notNull(),
+  eventsFound: integer("events_found").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const backtestRapidDropEvents = pgTable("backtest_rapid_drop_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  runId: uuid("run_id")
+    .notNull()
+    .references(() => backtestRuns.id),
   symbol: varchar("symbol", { length: 20 }).notNull(),
   triggerPrice: doublePrecision("trigger_price").notNull(),
   triggerTimestamp: timestamp("trigger_timestamp", { withTimezone: true }).notNull(),
@@ -27,20 +43,20 @@ export const rapidDropEvents = pgTable("rapid_drop_events", {
   windowSeconds: integer("window_seconds").notNull(),
 });
 
-export const rapidDropPricePoints = pgTable(
-  "rapid_drop_price_points",
+export const backtestRapidDropPricePoints = pgTable(
+  "backtest_rapid_drop_price_points",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     eventId: uuid("event_id")
       .notNull()
-      .references(() => rapidDropEvents.id),
+      .references(() => backtestRapidDropEvents.id),
     phase: pricePointPhase("phase").notNull(),
     timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
     price: doublePrecision("price").notNull(),
   },
   (table) => [
-    index("rapid_drop_price_points_event_id_idx").on(table.eventId),
-    index("rapid_drop_price_points_event_phase_idx").on(
+    index("bt_rapid_drop_pp_event_id_idx").on(table.eventId),
+    index("bt_rapid_drop_pp_event_phase_idx").on(
       table.eventId,
       table.phase,
     ),

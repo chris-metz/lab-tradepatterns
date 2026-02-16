@@ -23,3 +23,16 @@ export interface RapidDropEvent {
   pricesBefore: PricePoint[];
   pricesAfter: PricePoint[];
 }
+
+export interface BacktestRun {
+  id: string;
+  symbol: string;
+  fromTime: Date;
+  toTime: Date;
+  windowSeconds: number;
+  dropPercent: number;
+  recordAfterSeconds: number;
+  cooldownSeconds: number;
+  eventsFound: number;
+  createdAt: Date;
+}
