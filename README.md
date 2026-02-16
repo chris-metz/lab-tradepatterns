@@ -51,6 +51,8 @@ Flags:
 - `--no-persist` – Analyse ohne DB-Speicherung (nur Konsolen-Output)
 - `--dry-run` – Nur Download + Cache, keine Analyse
 
+Analyse läuft Tag-für-Tag. Bereits vorhandene Config+Symbol+Tag-Kombinationen werden beim Persistieren übersprungen, sodass Läufe inkrementell erweitert werden können (mehr Tage oder neue Configs).
+
 ## DB-Schema
 
 ```bash

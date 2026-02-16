@@ -5,13 +5,13 @@ import {
   doublePrecision,
   timestamp,
   integer,
+  date,
 } from "drizzle-orm/pg-core";
 
 export const backtestRapidDropRuns = pgTable("backtest_rapid_drop_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
   symbol: varchar("symbol", { length: 20 }).notNull(),
-  fromTime: timestamp("from_time", { withTimezone: true }).notNull(),
-  toTime: timestamp("to_time", { withTimezone: true }).notNull(),
+  date: date("date").notNull(),
   windowSeconds: integer("window_seconds").notNull(),
   dropPercent: doublePrecision("drop_percent").notNull(),
   recordAfterSeconds: integer("record_after_seconds").notNull(),

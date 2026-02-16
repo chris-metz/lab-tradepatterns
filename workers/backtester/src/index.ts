@@ -30,18 +30,30 @@ if (!values.from || !values.to) {
 
 const patternModule = getPattern(values.pattern!);
 const symbols = values.symbol ? [values.symbol.toUpperCase()] : DEFAULT_SYMBOLS;
-const from = new Date(values.from + "T00:00:00Z");
-const to = new Date(values.to + "T23:59:59Z");
 const dryRun = values["dry-run"] ?? false;
 const noPersist = values["no-persist"] ?? false;
 
+function generateDates(from: string, to: string): string[] {
+  const dates: string[] = [];
+  const current = new Date(from + "T00:00:00Z");
+  const end = new Date(to + "T00:00:00Z");
+  while (current <= end) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+const dates = generateDates(values.from!, values.to!);
 const startTime = performance.now();
 
 async function main() {
   const flags = [dryRun && "dry-run", noPersist && "no-persist"].filter(Boolean).join(", ");
-  console.log(`Backtest [${patternModule.name}]: ${symbols.join(", ")} from ${values.from} to ${values.to}${flags ? ` (${flags})` : ""}\n`);
+  console.log(`Backtest [${patternModule.name}]: ${symbols.join(", ")} | ${dates.length} day(s) from ${values.from} to ${values.to}${flags ? ` (${flags})` : ""}\n`);
 
-  // Phase 1: Download (extended range for trailing data)
+  // Phase 1: Download (full range + trailing for all symbols)
+  const from = new Date(values.from + "T00:00:00Z");
+  const to = new Date(values.to + "T23:59:59Z");
   const extendedTo = new Date(to.getTime() + patternModule.trailingSeconds * 1000);
   for (const symbol of symbols) {
     console.log(`Downloading ${symbol}...`);
@@ -54,16 +66,17 @@ async function main() {
     process.exit(0);
   }
 
-  // Phase 2: Analysis + Persist
+  // Phase 2: Analysis + Persist (day by day)
   const db = noPersist ? null : createDb(process.env.DATABASE_URL!);
 
   for (const symbol of symbols) {
-    console.log(`\nAnalyzing ${symbol} [${patternModule.name}]...`);
-    const results = await patternModule.run(symbol, from, to);
+    for (const date of dates) {
+      console.log(`\nAnalyzing ${symbol} ${date} [${patternModule.name}]...`);
+      const results = await patternModule.run(symbol, date);
 
-    if (db) {
-      console.log(`\nPersisting results for ${symbol}...`);
-      await patternModule.persist(db, symbol, from, to, results);
+      if (db) {
+        await patternModule.persist(db, symbol, date, results);
+      }
     }
   }
 

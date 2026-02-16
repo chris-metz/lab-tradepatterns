@@ -15,7 +15,8 @@
 - Jedes Pattern bekommt eigene DB-Tabelle (`backtest_{name}_runs`), eigene Types und eigenes Modul
 - Detektoren leben in `packages/shared/src/patterns/` (wiederverwendbar)
 - Kein generisches Pattern-System, kein JSONB – alles explizit und typisiert
-- DB speichert nur aggregierte Ergebnisse pro Parameterkombination (avg recovery, win rates), keine Einzelevents
+- DB speichert nur aggregierte Ergebnisse pro Tag/Config-Kombination (avg recovery, win rates), keine Einzelevents
+- Backtester läuft Tag-für-Tag und überspringt bereits vorhandene Config+Symbol+Tag-Kombinationen (Dedup)
 
 ## Workers
 

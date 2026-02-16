@@ -27,8 +27,7 @@ export interface RapidDropEvent {
 export interface RapidDropBacktestRun {
   id: string;
   symbol: string;
-  fromTime: Date;
-  toTime: Date;
+  date: string;
   windowSeconds: number;
   dropPercent: number;
   recordAfterSeconds: number;

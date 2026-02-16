@@ -6,6 +6,7 @@ import {
   createDb,
   schema,
 } from "@tradepatterns/shared";
+import { and, eq } from "drizzle-orm";
 import { loadKlines } from "../kline-cache.js";
 import type { PatternModule } from "./types.js";
 
@@ -35,7 +36,6 @@ function printEventSummary(event: RapidDropEvent, index: number): void {
   const recoveryParts: string[] = [];
   for (const seconds of SUMMARY_INTERVALS) {
     const targetTs = event.triggerTimestamp + seconds * 1000;
-    // Find closest price point to target timestamp
     const point = event.pricesAfter.reduce<PricePoint | null>((closest, p) => {
       if (!closest) return p;
       return Math.abs(p.timestamp - targetTs) < Math.abs(closest.timestamp - targetTs) ? p : closest;
@@ -63,7 +63,9 @@ function printConfigSummary(result: BacktestResult): void {
   }
 }
 
-async function run(symbol: string, from: Date, to: Date): Promise<BacktestResult[]> {
+async function run(symbol: string, date: string): Promise<BacktestResult[]> {
+  const from = new Date(date + "T00:00:00Z");
+  const to = new Date(date + "T23:59:59Z");
   const extendedTo = new Date(to.getTime() + MAX_TRAILING_SECONDS * 1000);
   const originalToMs = to.getTime();
 
@@ -81,8 +83,7 @@ async function run(symbol: string, from: Date, to: Date): Promise<BacktestResult
       }),
   );
 
-  let dayCount = 0;
-  for await (const { date, klines } of loadKlines(symbol, from, extendedTo)) {
+  for await (const { date: d, klines } of loadKlines(symbol, from, extendedTo)) {
     for (const kline of klines) {
       const point: PricePoint = {
         timestamp: kline.openTime,
@@ -93,16 +94,12 @@ async function run(symbol: string, from: Date, to: Date): Promise<BacktestResult
         detector.feed(point);
       }
     }
-    dayCount++;
     const configSummary = results
       .map((r) => `${r.config.windowSeconds}s/${r.config.dropPercent}%: ${r.events.length}`)
       .join(", ");
-    console.log(`  [${date}] ${klines.length} klines processed (${configSummary})`);
+    console.log(`  [${d}] ${klines.length} klines processed (${configSummary})`);
   }
 
-  console.log(`\nProcessed ${dayCount} days for ${symbol}`);
-
-  // Print recovery summary
   for (const result of results) {
     printConfigSummary(result);
   }
@@ -151,25 +148,51 @@ function computeAggregates(events: RapidDropEvent[]) {
   };
 }
 
+function configKey(c: RapidDropDetectorConfig): string {
+  return `${c.windowSeconds}|${c.dropPercent}|${c.recordAfterSeconds}|${c.cooldownSeconds}`;
+}
+
 async function persist(
   db: ReturnType<typeof createDb>,
   symbol: string,
-  from: Date,
-  to: Date,
+  date: string,
   results: unknown,
 ): Promise<void> {
   const typedResults = results as BacktestResult[];
 
+  // Check which configs already exist for this symbol+date
+  const existing = await db
+    .select({
+      windowSeconds: schema.backtestRapidDropRuns.windowSeconds,
+      dropPercent: schema.backtestRapidDropRuns.dropPercent,
+      recordAfterSeconds: schema.backtestRapidDropRuns.recordAfterSeconds,
+      cooldownSeconds: schema.backtestRapidDropRuns.cooldownSeconds,
+    })
+    .from(schema.backtestRapidDropRuns)
+    .where(
+      and(
+        eq(schema.backtestRapidDropRuns.symbol, symbol),
+        eq(schema.backtestRapidDropRuns.date, date),
+      ),
+    );
+
+  const existingKeys = new Set(existing.map((e) => configKey(e as RapidDropDetectorConfig)));
+
   for (const result of typedResults) {
     const { config, events } = result;
+
+    if (existingKeys.has(configKey(config))) {
+      console.log(`  Skipped: ${config.windowSeconds}s/${config.dropPercent}% (already exists for ${date})`);
+      continue;
+    }
+
     const aggregates = computeAggregates(events);
 
     const [run] = await db
       .insert(schema.backtestRapidDropRuns)
       .values({
         symbol,
-        fromTime: from,
-        toTime: to,
+        date,
         windowSeconds: config.windowSeconds,
         dropPercent: config.dropPercent,
         recordAfterSeconds: config.recordAfterSeconds,
