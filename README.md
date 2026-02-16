@@ -24,6 +24,9 @@ npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --symb
 # Bestimmtes Pattern wählen
 npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --pattern rapid-drop
 
+# Nur Analyse, ohne DB-Speicherung
+npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --symbol BTCUSDT --no-persist
+
 # Nur Daten downloaden (ohne Analyse)
 npx tsx workers/backtester/src/index.ts --from 2024-08-01 --to 2024-08-31 --dry-run
 ```
@@ -32,6 +35,7 @@ Flags:
 - `--from` / `--to` – Zeitraum (YYYY-MM-DD, Pflicht)
 - `--symbol` – Einzelnes Symbol (default: BTCUSDT, ETHUSDT, SOLUSDT)
 - `--pattern` – Pattern-Modul (default: `rapid-drop`)
+- `--no-persist` – Analyse ohne DB-Speicherung (nur Konsolen-Output)
 - `--dry-run` – Nur Download + Cache, keine Analyse
 
 Heruntergeladene Klines werden unter `workers/backtester/data/` als CSV gecacht und bei folgenden Runs wiederverwendet.
