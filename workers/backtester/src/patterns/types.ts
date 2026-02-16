@@ -12,4 +12,5 @@ export interface PatternModule {
   loadConfigs(configPath: string): PatternConfigFile;
   run(symbol: string, date: string, configs: unknown[]): Promise<unknown>;
   persist(db: ReturnType<typeof createDb>, symbol: string, date: string, results: unknown): Promise<void>;
+  filterNewConfigs?(db: ReturnType<typeof createDb>, symbol: string, date: string, configs: unknown[]): Promise<unknown[]>;
 }

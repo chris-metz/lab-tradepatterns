@@ -1,9 +1,24 @@
 {
-  "from": "2025-01-01",
-  "to": "2025-01-31",
+  "from": "2024-08-01",
+  "to": "2024-08-20",
   "configs": [
-    { "windowSeconds": 30, "dropPercent": 2, "recordAfterSeconds": 3600, "cooldownSeconds": 600 },
-    { "windowSeconds": 60, "dropPercent": 2, "recordAfterSeconds": 3600, "cooldownSeconds": 600 },
-    { "windowSeconds": 300, "dropPercent": 5, "recordAfterSeconds": 3600, "cooldownSeconds": 600 }
+    {
+      "windowSeconds": 30,
+      "dropPercent": 2,
+      "recordAfterSeconds": 3600,
+      "cooldownSeconds": 600
+    },
+    {
+      "windowSeconds": 60,
+      "dropPercent": 2,
+      "recordAfterSeconds": 3600,
+      "cooldownSeconds": 600
+    },
+    {
+      "windowSeconds": 300,
+      "dropPercent": 5,
+      "recordAfterSeconds": 3600,
+      "cooldownSeconds": 600
+    }
   ]
 }

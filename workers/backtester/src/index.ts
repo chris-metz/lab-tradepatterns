@@ -11,7 +11,7 @@ import { createDb } from "@tradepatterns/shared";
 import { downloadSymbol } from "./downloader.js";
 import { getPattern } from "./patterns/index.js";
 
-const DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
+const DEFAULT_SYMBOLS = ["BTCUSDT"];
 
 const { values } = parseArgs({
   options: {
@@ -90,8 +90,24 @@ async function main() {
 
   for (const symbol of symbols) {
     for (const date of dates) {
-      console.log(`\nAnalyzing ${symbol} ${date} [${patternModule.name}]...`);
-      const results = await patternModule.run(symbol, date, configs);
+      let activeConfigs = configs;
+
+      if (db && patternModule.filterNewConfigs) {
+        activeConfigs = await patternModule.filterNewConfigs(db, symbol, date, configs);
+        if (activeConfigs.length === 0) {
+          console.log(`\nSkipping ${symbol} ${date} [${patternModule.name}] — all configs already in DB`);
+          continue;
+        }
+        if (activeConfigs.length < configs.length) {
+          console.log(`\nAnalyzing ${symbol} ${date} [${patternModule.name}] (${activeConfigs.length}/${configs.length} configs new)...`);
+        } else {
+          console.log(`\nAnalyzing ${symbol} ${date} [${patternModule.name}]...`);
+        }
+      } else {
+        console.log(`\nAnalyzing ${symbol} ${date} [${patternModule.name}]...`);
+      }
+
+      const results = await patternModule.run(symbol, date, activeConfigs);
 
       if (db) {
         await patternModule.persist(db, symbol, date, results);

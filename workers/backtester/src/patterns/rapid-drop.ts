@@ -211,14 +211,12 @@ function configKey(c: RapidDropDetectorConfig): string {
   return `${c.windowSeconds}|${c.dropPercent}|${c.recordAfterSeconds}|${c.cooldownSeconds}`;
 }
 
-async function persist(
+async function getExistingKeys(
   db: ReturnType<typeof createDb>,
   symbol: string,
   date: string,
-  results: unknown,
-): Promise<void> {
-  const typedResults = results as BacktestResult[];
-
+  configs: unknown[],
+): Promise<Set<string>> {
   const existing = await db
     .select({
       windowSeconds: schema.backtestRapidDropRuns.windowSeconds,
@@ -234,7 +232,18 @@ async function persist(
       ),
     );
 
-  const existingKeys = new Set(existing.map((e) => configKey(e as RapidDropDetectorConfig)));
+  return new Set(existing.map((e) => configKey(e as RapidDropDetectorConfig)));
+}
+
+async function persist(
+  db: ReturnType<typeof createDb>,
+  symbol: string,
+  date: string,
+  results: unknown,
+): Promise<void> {
+  const typedResults = results as BacktestResult[];
+
+  const existingKeys = await getExistingKeys(db, symbol, date, []);
 
   for (const result of typedResults) {
     const { config, events } = result;
@@ -266,10 +275,21 @@ async function persist(
   }
 }
 
+async function filterNewConfigs(
+  db: ReturnType<typeof createDb>,
+  symbol: string,
+  date: string,
+  configs: unknown[],
+): Promise<unknown[]> {
+  const existingKeys = await getExistingKeys(db, symbol, date, configs);
+  return (configs as RapidDropDetectorConfig[]).filter((c) => !existingKeys.has(configKey(c)));
+}
+
 export const rapidDrop: PatternModule = {
   name: "rapid-drop",
   trailingSeconds,
   loadConfigs,
   run,
   persist,
+  filterNewConfigs,
 };
