@@ -23,6 +23,6 @@ export async function downloadSymbol(symbol: string, from: Date, to: Date): Prom
 
     await cacheDay(symbol, day, allKlines);
     console.log(`    ${day}: ${allKlines.length} klines cached`);
-    await sleep(1000);
+    await sleep(parseInt(process.env.BINANCE_DAY_DELAY_MS ?? "5000", 10));
   }
 }

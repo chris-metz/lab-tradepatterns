@@ -23,7 +23,10 @@ const to = new Date(values.to + "T23:59:59Z");
 const startTime = performance.now();
 
 async function main() {
-  console.log(`Download: ${symbols.join(", ")} from ${values.from} to ${values.to}\n`);
+  const rateLimitMs = process.env.BINANCE_RATE_LIMIT_MS ?? "2000";
+  const dayDelayMs = process.env.BINANCE_DAY_DELAY_MS ?? "5000";
+  console.log(`Download: ${symbols.join(", ")} from ${values.from} to ${values.to}`);
+  console.log(`Rate limit: ${rateLimitMs}ms between batches, ${dayDelayMs}ms between days\n`);
 
   for (const symbol of symbols) {
     console.log(`Downloading ${symbol}...`);

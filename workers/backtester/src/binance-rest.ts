@@ -1,5 +1,5 @@
 const BASE_URL = "https://api.binance.com";
-const RATE_LIMIT_MS = 500;
+const RATE_LIMIT_MS = parseInt(process.env.BINANCE_RATE_LIMIT_MS ?? "2000", 10);
 const MAX_RETRIES = 5;
 
 export interface RawKline {
