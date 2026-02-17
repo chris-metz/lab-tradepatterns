@@ -7,7 +7,7 @@ dotenv.config({ path: resolve(__dirname, "../../../.env") });
 
 import { parseArgs } from "node:util";
 import { createDb, schema } from "@tradepatterns/shared";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 const { values } = parseArgs({
   options: {
@@ -25,8 +25,6 @@ const db = createDb(process.env.DATABASE_URL!);
 interface ConfigGroup {
   windowSeconds: number;
   dropPercent: number;
-  recordAfterSeconds: number;
-  cooldownSeconds: number;
   totalEvents: number;
   totalProfitable: number;
   totalDays: number;
@@ -39,19 +37,14 @@ interface ConfigGroup {
 }
 
 async function main() {
-  const conditions = values.symbol
-    ? [eq(table.symbol, values.symbol.toUpperCase())]
-    : [];
-
-  // Only query rows with recordAfterSeconds=3600 (new outcome-based runs)
-  conditions.push(eq(table.recordAfterSeconds, 3600));
+  const symbolFilter = values.symbol
+    ? eq(table.symbol, values.symbol.toUpperCase())
+    : undefined;
 
   const rows = await db
     .select({
       windowSeconds: table.windowSeconds,
       dropPercent: table.dropPercent,
-      recordAfterSeconds: table.recordAfterSeconds,
-      cooldownSeconds: table.cooldownSeconds,
       eventsFound: table.eventsFound,
       profitableCount: table.profitableCount,
       avgMaxProfit: table.avgMaxProfit,
@@ -66,7 +59,7 @@ async function main() {
       symbol: table.symbol,
     })
     .from(table)
-    .where(conditions.length > 1 ? and(...conditions) : conditions[0]);
+    .where(symbolFilter);
 
   if (rows.length === 0) {
     console.log("No data found. Run the backtester first.");
@@ -76,7 +69,7 @@ async function main() {
   // Group by config
   const groups = new Map<string, typeof rows>();
   for (const row of rows) {
-    const key = `${row.windowSeconds}|${row.dropPercent}|${row.recordAfterSeconds}|${row.cooldownSeconds}`;
+    const key = `${row.windowSeconds}|${row.dropPercent}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(row);
   }
@@ -123,8 +116,6 @@ async function main() {
     results.push({
       windowSeconds: first.windowSeconds,
       dropPercent: first.dropPercent,
-      recordAfterSeconds: first.recordAfterSeconds,
-      cooldownSeconds: first.cooldownSeconds,
       totalEvents,
       totalProfitable,
       totalDays,

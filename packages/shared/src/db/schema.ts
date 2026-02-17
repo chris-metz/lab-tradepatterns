@@ -15,8 +15,6 @@ export const backtestRapidDropRuns = pgTable("backtest_rapid_drop_runs", {
   date: date("date").notNull(),
   windowSeconds: integer("window_seconds").notNull(),
   dropPercent: doublePrecision("drop_percent").notNull(),
-  recordAfterSeconds: integer("record_after_seconds").notNull(),
-  cooldownSeconds: integer("cooldown_seconds").notNull(),
   eventsFound: integer("events_found").notNull().default(0),
   profitableCount: integer("profitable_count"),
   avgMaxProfit: doublePrecision("avg_max_profit"),

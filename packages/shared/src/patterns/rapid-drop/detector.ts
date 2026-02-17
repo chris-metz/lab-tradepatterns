@@ -1,22 +1,21 @@
 import type { PricePoint, RapidDropEvent } from "../../types.js";
 import { randomUUID } from "crypto";
 
+/** How many seconds to observe prices after a trigger (1 hour) */
+export const RECORD_AFTER_SECONDS = 3600;
+/** Cooldown in seconds before the same pattern can trigger again (10 min) */
+export const COOLDOWN_SECONDS = 600;
+
 export interface RapidDropDetectorConfig {
   /** Rolling window size in seconds */
   windowSeconds: number;
   /** Drop threshold in percent (e.g. 2 = 2%) */
   dropPercent: number;
-  /** How many seconds to record after a trigger */
-  recordAfterSeconds: number;
-  /** Cooldown in seconds before the same pattern can trigger again */
-  cooldownSeconds: number;
 }
 
 const DEFAULT_CONFIG: RapidDropDetectorConfig = {
   windowSeconds: 60,
   dropPercent: 2,
-  recordAfterSeconds: 120,
-  cooldownSeconds: 300,
 };
 
 export class RapidDropDetector {
@@ -77,7 +76,7 @@ export class RapidDropDetector {
     if (
       dropPercent >= this.config.dropPercent &&
       point.timestamp - this.lastTriggerTimestamp >
-        this.config.cooldownSeconds * 1000
+        COOLDOWN_SECONDS * 1000
     ) {
       this.lastTriggerTimestamp = point.timestamp;
 
@@ -99,7 +98,7 @@ export class RapidDropDetector {
       this.activeRecording = {
         event,
         endTimestamp:
-          point.timestamp + this.config.recordAfterSeconds * 1000,
+          point.timestamp + RECORD_AFTER_SECONDS * 1000,
         windowHigh,
       };
     }

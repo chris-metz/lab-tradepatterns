@@ -59,7 +59,7 @@ Flags:
 
 Analyse läuft Tag-für-Tag. Bereits vorhandene Config+Symbol+Tag-Kombinationen werden beim Persistieren übersprungen, sodass Läufe inkrementell erweitert werden können (mehr Tage oder neue Configs).
 
-Pro Event werden outcome-basierte Metriken berechnet (1h Beobachtungsfenster nach Trigger):
+Pro Event werden outcome-basierte Metriken berechnet (1h Beobachtungsfenster nach Trigger, 10 Min Cooldown zwischen Events – beides Konstanten im Detector):
 - **MaxProfit** – maximaler Gewinn (%)
 - **MaxDrawdown** – maximaler Drawdown vom Triggerpreis (%)
 - **TimeToBreakeven** – Sekunden bis Preis > Triggerpreis
@@ -112,8 +112,6 @@ source <(grep DATABASE_URL .env) && psql "$DATABASE_URL" -c "SELECT count(*) FRO
 | `date` | date | Tag der Analyse |
 | `window_seconds` | integer | Zeitfenster für Drop-Erkennung |
 | `drop_percent` | double | Schwellwert für Drop in % |
-| `record_after_seconds` | integer | Beobachtungsfenster nach Trigger |
-| `cooldown_seconds` | integer | Cooldown zwischen Events |
 | `events_found` | integer | Anzahl erkannter Events am Tag |
 | `profitable_count` | integer | Davon profitabel |
 | `avg_max_profit` | double | Durchschn. max. Gewinn (%) |

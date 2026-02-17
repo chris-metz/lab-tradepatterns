@@ -29,7 +29,8 @@
   - Auswertung: `npx tsx workers/backtester/src/analyze.ts [--symbol BTCUSDT] [--pattern rapid-drop] [--fee 0.2]`
   - Pattern-agnostisch: `--pattern` wählt das Pattern-Modul (default: `rapid-drop`)
   - `--config` wählt Config-JSON (default: `configs/{pattern}.json`), `--from`/`--to` überschreiben JSON-Werte
-  - Metriken: outcome-basiert (maxProfit, maxDrawdown, timeToBreakeven, endResult) mit 1h Beobachtungsfenster
+  - Metriken: outcome-basiert (maxProfit, maxDrawdown, timeToBreakeven, endResult) mit 1h Beobachtungsfenster und 10 Min Cooldown (Konstanten im Detector)
+  - Config-Parameter pro Pattern: nur `windowSeconds` und `dropPercent`
   - Neue Patterns: Modul in `workers/backtester/src/patterns/` + Eintrag in Registry
 
 ## Offene Entscheidungen

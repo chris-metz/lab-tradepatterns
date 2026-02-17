@@ -30,8 +30,6 @@ export interface RapidDropBacktestRun {
   date: string;
   windowSeconds: number;
   dropPercent: number;
-  recordAfterSeconds: number;
-  cooldownSeconds: number;
   eventsFound: number;
   profitableCount: number | null;
   avgMaxProfit: number | null;

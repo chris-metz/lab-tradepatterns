@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import {
   RapidDropDetector,
+  RECORD_AFTER_SECONDS,
   type RapidDropDetectorConfig,
   type RapidDropEvent,
   type PricePoint,
@@ -155,9 +156,8 @@ function loadConfigs(configPath: string): PatternConfigFile {
   };
 }
 
-function trailingSeconds(configs: unknown[]): number {
-  const typed = configs as RapidDropDetectorConfig[];
-  return Math.max(...typed.map((c) => c.recordAfterSeconds));
+function trailingSeconds(_configs: unknown[]): number {
+  return RECORD_AFTER_SECONDS;
 }
 
 async function run(symbol: string, date: string, configs: unknown[]): Promise<BacktestResult[]> {
@@ -208,7 +208,7 @@ async function run(symbol: string, date: string, configs: unknown[]): Promise<Ba
 }
 
 function configKey(c: RapidDropDetectorConfig): string {
-  return `${c.windowSeconds}|${c.dropPercent}|${c.recordAfterSeconds}|${c.cooldownSeconds}`;
+  return `${c.windowSeconds}|${c.dropPercent}`;
 }
 
 async function getExistingKeys(
@@ -221,8 +221,6 @@ async function getExistingKeys(
     .select({
       windowSeconds: schema.backtestRapidDropRuns.windowSeconds,
       dropPercent: schema.backtestRapidDropRuns.dropPercent,
-      recordAfterSeconds: schema.backtestRapidDropRuns.recordAfterSeconds,
-      cooldownSeconds: schema.backtestRapidDropRuns.cooldownSeconds,
     })
     .from(schema.backtestRapidDropRuns)
     .where(
@@ -262,8 +260,6 @@ async function persist(
         date,
         windowSeconds: config.windowSeconds,
         dropPercent: config.dropPercent,
-        recordAfterSeconds: config.recordAfterSeconds,
-        cooldownSeconds: config.cooldownSeconds,
         eventsFound: events.length,
         ...aggregates,
       })
